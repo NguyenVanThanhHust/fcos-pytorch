@@ -12,12 +12,15 @@ import math
 class CocoDataset(data.dataset.Dataset):
     'Dataset looping through a set of images'
 
-    def __init__(self, path, resize, max_size, stride, annotations=None, training=False, rotate_augment=False,
+    def __init__(self, data_folder, resize, max_size, stride,
+                 annotations=None, 
+                 training=False, 
+                 rotate_augment=False,
                  augment_brightness=0.0, augment_contrast=0.0,
                  augment_hue=0.0, augment_saturation=0.0):
         super().__init__()
 
-        self.path = os.path.expanduser(path)
+        self.path = data_folder
         self.resize = resize
         self.max_size = max_size
         self.stride = stride
