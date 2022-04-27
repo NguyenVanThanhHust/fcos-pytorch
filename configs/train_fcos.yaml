@@ -7,4 +7,4 @@ DATALOADER:
 TEST:
   IMS_PER_BATCH: 2
 
-OUTPUT_DIR: "./outputs/unet"
+OUTPUT_DIR: "./outputs/fcos"
