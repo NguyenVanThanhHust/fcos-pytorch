@@ -1,9 +1,9 @@
 from torch.utils import data
-from .datasets import CrackDataset
+from .datasets import CocoDataset
 from .transforms import build_transforms
 
 def build_datasets(data_folder, transform, split="train"):
-    datasets = CrackDataset(data_folder=data_folder, split=split, transform=transform)
+    datasets = CocoDataset(data_folder=data_folder, split=split, transform=transform)
     return datasets
 
 def make_data_loader(cfg, split="train"):
@@ -17,7 +17,7 @@ def make_data_loader(cfg, split="train"):
     datasets = build_datasets(cfg.INPUT.FOLDER, transform, split)
     num_workers = cfg.DATALOADER.NUM_WORKERS
     data_loader = data.DataLoader(
-        datasets, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+        datasets, batch_size=batch_size, shuffle=shuffle, collate_fn=dataset.collate_fn, num_workers=num_workers
     )
 
     return data_loader
