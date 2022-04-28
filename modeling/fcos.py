@@ -4,7 +4,7 @@ from torch import nn
 
 from layers.basic_block import Encoder, Decoder
 
-class Crack_Unet(nn.Module):
+class FCOS(nn.Module):
     def __init__(self, enc_chs=(3,64,128,256,512,1024), 
                        dec_chs=(1024, 512, 256, 128, 64), 
                        num_class=1, 
