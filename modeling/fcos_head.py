@@ -1,9 +1,27 @@
+import math
 import numpy as np
+import torch
 import torch.nn.functional as F
 from torch import nn
 
+class Scale(nn.Module):
+    def __init__(self, init=1.0):
+        super().__init__()
+
+        self.scale = nn.Parameter(torch.tensor([init], dtype=torch.float32))
+
+    def forward(self, input):
+        return input * self.scale
+
+def init_conv_std(module, std=0.01):
+    if isinstance(module, nn.Conv2d):
+        nn.init.normal_(module.weight, std=std)
+
+        if module.bias is not None:
+            nn.init.constant_(module.bias, 0)
+
 class FCOSHead(nn.Module):
-    def __init__(self, in_channels, n_class, n_conv, priors):
+    def __init__(self, in_channel, n_class, n_conv, prior):
         super().__init__()
 
         cls_tower = []
@@ -41,7 +59,14 @@ class FCOSHead(nn.Module):
         centers = []
 
         for feat, scale in zip(inputs, self.scales):
-            cls_out = self.cls_tower(feat)
-            bbox_out = self.bbox_tower(feat)
+            cls_out = self.cls_pred(self.cls_tower(feat))
+            bbox_out = self.bbox_pred(self.bbox_tower(feat))
+
             center_out = self.center_pred(feat)
-            
+            logits.append(cls_out)
+            centers.append(center_out)
+
+            bbox_out = torch.exp(scale(bbox_out))
+            bboxes.append(bbox_out)
+        
+        return logits, bboxes, centers

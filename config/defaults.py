@@ -16,10 +16,15 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 
+_C.PRIOR = 0.01
 _C.MODEL = CN()
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.NUM_CLASSES = 80
+_C.MODEL.BACKBONE="ResNet50FPN"
 _C.MODEL.STRIDE = 128
+_C.MODEL.NUM_CONV_BLOCK = 4
+_C.MODEL.FEATURE_DEPTH = 256
+
 # -----------------------------------------------------------------------------
 # INPUT
 # -----------------------------------------------------------------------------
