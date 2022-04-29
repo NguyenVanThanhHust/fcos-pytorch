@@ -1,9 +1,13 @@
-from .unet import Crack_Unet
-from .loss import bce_loss
+from .fcos import FCOS
+from .loss import FCOSLoss
 
 def build_model(cfg):
-    model = Crack_Unet(num_class=cfg.MODEL.NUM_CLASSES)
+    model = FCOS(backbones=cfg.MODEL.BACKBONE,
+                classes=cfg.MODEL.NUM_CLASSES, 
+                cfg=cfg)
     return model
 
 def build_loss(cfg):
-    return bce_loss
+    return FCOSLoss(cfg.SIZES, cfg.GAMMA, cfg.ALPHA, 
+                cfg.CENTER_SAMPLING, cfg.FPN_STRIDES, 
+                cfg.POS_RADIUS)

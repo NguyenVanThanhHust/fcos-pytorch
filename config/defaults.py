@@ -17,6 +17,13 @@ from yacs.config import CfgNode as CN
 _C = CN()
 
 _C.PRIOR = 0.01
+_C.GAMMA = 2.0
+_C.ALPHA = 0.25
+_C.FPN_STRIDES = [8, 16, 32, 64, 128]
+_C.SIZES = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 100000000]]
+_C.POS_RADIUS = 1.5
+_C.CENTER_SAMPLING = True
+
 _C.MODEL = CN()
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.NUM_CLASSES = 80
