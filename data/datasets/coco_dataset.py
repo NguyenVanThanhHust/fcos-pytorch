@@ -109,8 +109,11 @@ class CocoDataset(data.dataset.Dataset):
                 saturation_factor = random.normalvariate(1, self.augment_saturation)
                 saturation_factor = max(0, saturation_factor)
                 im = adjust_saturation(im, saturation_factor)
+        else:
+            boxes, categories = self._get_target(id)
+            boxes *= ratio
 
-            target = torch.cat([boxes, categories], dim=1)
+        target = torch.cat([boxes, categories], dim=1)
 
         # Convert to tensor and normalize
         data = torch.ByteTensor(torch.ByteStorage.from_buffer(im.tobytes()))
@@ -124,10 +127,7 @@ class CocoDataset(data.dataset.Dataset):
         pw, ph = ((self.stride - d % self.stride) % self.stride for d in im.size)
         data = F.pad(data, (0, pw, 0, ph))
 
-        if self.training:
-            return data, target
-
-        return data, id, ratio
+        return data, target, id, ratio
 
     def _get_target(self, id):
         'Get annotations for sample'
@@ -156,13 +156,10 @@ class CocoDataset(data.dataset.Dataset):
     def collate_fn(self, batch):
         'Create batch from multiple samples'
 
-        if self.training:
-            data, targets = zip(*batch)
-            max_det = max([t.size()[0] for t in targets])
-            targets = [torch.cat([t, torch.ones([max_det - t.size()[0], 5]) * -1]) for t in targets]
-            targets = torch.stack(targets, 0)
-        else:
-            data, indices, ratios = zip(*batch)
+        data, targets, indices, ratios = zip(*batch)
+        max_det = max([t.size()[0] for t in targets])
+        targets = [torch.cat([t, torch.ones([max_det - t.size()[0], 5]) * -1]) for t in targets]
+        targets = torch.stack(targets, 0)
 
         # Pad data to match max batch dimensions
         sizes = [d.size()[-2:] for d in data]
@@ -176,8 +173,6 @@ class CocoDataset(data.dataset.Dataset):
 
         data = torch.stack(data_stack)
 
-        if self.training:
-            return data, targets
-
         ratios = torch.FloatTensor(ratios).view(-1, 1, 1)
-        return data, torch.IntTensor(indices), ratios
+
+        return data, targets, torch.IntTensor(indices), ratios
