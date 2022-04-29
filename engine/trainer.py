@@ -8,58 +8,47 @@ from torchvision import transforms
 from evaluation.metrics import dice, jaccard
 
 class LitModel(pl.LightningModule):
-    def __init__(self, model, loss, optim):
+    def __init__(self, model, loss, optim, post_process):
         super().__init__()
         self.model = model
         self.loss = loss
         self.optim = optim
-        self.train_dice_scores = []
-        self.train_jaccard_scores = []
-        self.val_dice_scores = []
-        self.val_jaccard_scores = []
-        self.test_dice_scores = []
-        self.test_jaccard_scores = []
+        self.post_process = post_process
 
     def forward(self, x):
         mask = self.model(x)
         return mask
 
     def training_step(self, batch, batch_idx):
-        data, target = batch 
-        pred = self.model(data)
-        loss = self.loss(pred, target)
-        dice_value = dice(pred, target)
-        jaccard_value = jaccard(pred, target)
-        self.train_dice_scores.append(dice_value)
-        self.train_jaccard_scores.append(jaccard_value)
-        self.log('train_loss', loss, on_epoch=True)
-        self.log('dice_value', dice_value, on_epoch=True)
-        self.log('jaccard_value', jaccard_value, on_epoch=True)
-        return loss
+        data, targets, indices, ratios = batch 
+        preds, locations = self.model(data)
+        losses = self.loss(locations, preds, targets)
+        cls_loss, box_loss, center_loss = losses
+        self.log('train_all_loss', sum(losses).item(), on_epoch=True)
+        self.log('train_cls_loss', cls_loss.item(), on_epoch=True)
+        self.log('train_box_loss', box_loss.item(), on_epoch=True)
+        self.log('train_center_loss', center_loss.item(), on_epoch=True)
+        return cls_loss + box_loss + center_loss
 
     def validation_step(self, batch, batch_idx):
-        data, target = batch 
-        pred = self.model(data)
-        loss = self.loss(pred, target)
-        dice_value = dice(pred, target)
-        jaccard_value = jaccard(pred, target)
-        self.val_dice_scores.append(dice_value)
-        self.val_jaccard_scores.append(jaccard_value)
-        self.log('valid_loss', loss, on_epoch=True)
-        self.log('dice_value', dice_value, on_epoch=True)
-        self.log('jaccard_value', jaccard_value, on_epoch=True)
+        data, targets, indices, ratios = batch 
+        preds, locations = self.model(data)
+        losses = self.loss(locations, preds, targets)
+        cls_loss, box_loss, center_loss = losses
+        self.log('valid_all_loss', sum(losses).item(), on_epoch=True)
+        self.log('valid_cls_loss', cls_loss.item(), on_epoch=True)
+        self.log('valid_box_loss', box_loss.item(), on_epoch=True)
+        self.log('valid_center_loss', center_loss.item(), on_epoch=True)
 
     def test_step(self, batch, batch_idx):
-        data, target = batch 
-        pred = self.model(data)
-        loss = self.loss(pred, target)
-        dice_value = dice(pred, target)
-        jaccard_value = jaccard(pred, target)
-        self.test_dice_scores.append(dice_value)
-        self.test_jaccard_scores.append(jaccard_value)
-        self.log('test_loss', loss, on_epoch=True)
-        self.log('dice_value', dice_value, on_epoch=True)
-        self.log('jaccard_value', jaccard_value, on_epoch=True)
+        data, targets, indices, ratios = batch 
+        preds, locations = self.model(data)
+        losses = self.loss(locations, preds, targets)
+        cls_loss, box_loss, center_loss = losses
+        self.log('test_all_loss', sum(losses).item(), on_epoch=True)
+        self.log('test_cls_loss', cls_loss.item(), on_epoch=True)
+        self.log('test_box_loss', box_loss.item(), on_epoch=True)
+        self.log('test_center_loss', center_loss.item(), on_epoch=True)
 
     def configure_optimizers(self):
         return self.optim
@@ -72,10 +61,11 @@ def do_train(
         optimizer,
         scheduler,
         loss_fn,
+        post_process, 
         cfg, 
     ):
 
-    my_model = LitModel(model, loss_fn, optimizer, )
+    my_model = LitModel(model, loss_fn, optimizer, post_process)
     
     # ------------
     # training
@@ -94,9 +84,10 @@ def do_test(
         val_loader,
         optimizer,
         loss_fn,
+        post_process, 
     ):
 
-    my_model = LitModel(model, loss_fn, optimizer, )
+    my_model = LitModel(model, loss_fn, optimizer, post_process)
     trainer = pl.Trainer(devices=1, accelerator="gpu")
     # ------------
     # testing

@@ -5,11 +5,50 @@ import torch.nn.functional as F
 INF = 100000000
 
 class IOULoss(nn.Module):
-    def __init__(self, ):
+    def __init__(self, loc_loss_type="iou"):
         super().__init__()
-    
-    def forward(self, ):
-        return 
+
+        self.loc_loss_type = loc_loss_type
+
+    def forward(self, out, target, weight=None):
+        pred_left, pred_top, pred_right, pred_bottom = out.unbind(1)
+        target_left, target_top, target_right, target_bottom = target.unbind(1)
+
+        target_area = (target_left + target_right) * (target_top + target_bottom)
+        pred_area = (pred_left + pred_right) * (pred_top + pred_bottom)
+
+        w_intersect = torch.min(pred_left, target_left) + torch.min(
+            pred_right, target_right
+        )
+        h_intersect = torch.min(pred_bottom, target_bottom) + torch.min(
+            pred_top, target_top
+        )
+
+        area_intersect = w_intersect * h_intersect
+        area_union = target_area + pred_area - area_intersect
+
+        ious = (area_intersect + 1) / (area_union + 1)
+
+        if self.loc_loss_type == 'iou':
+            loss = -torch.log(ious)
+
+        elif self.loc_loss_type == 'giou':
+            g_w_intersect = torch.max(pred_left, target_left) + torch.max(
+                pred_right, target_right
+            )
+            g_h_intersect = torch.max(pred_bottom, target_bottom) + torch.max(
+                pred_top, target_top
+            )
+            g_intersect = g_w_intersect * g_h_intersect + 1e-7
+            gious = ious - (g_intersect - area_union) / g_intersect
+
+            loss = 1 - gious
+
+        if weight is not None and weight.sum() > 0:
+            return (loss * weight).sum() / weight.sum()
+
+        else:
+            return loss.mean()
 
 def clip_sigmoid(input):
     out = torch.clamp(torch.sigmoid(input), min=1e-4, max=1 - 1e-4)
@@ -52,12 +91,19 @@ class SigmoidFocalLoss(nn.Module):
 class FCOSLoss(nn.Module):
     def __init__(self, sizes, gamma, alpha, center_sampling, fpn_strides, pos_radius):
         super().__init__()
+        
         self.sizes = sizes
+        
         self.gamma = gamma
         self.alpha = alpha
         self.center_sampling = center_sampling
         self.fpn_strides = fpn_strides
         self.radius = pos_radius
+
+        self.cls_loss = SigmoidFocalLoss(gamma, alpha)
+        self.box_loss = IOULoss()
+        self.center_loss = nn.BCEWithLogitsLoss()
+
 
     def forward(self, locations, preds, targets):
         pred_logits, pred_bboxes, pred_centers = preds
@@ -88,12 +134,35 @@ class FCOSLoss(nn.Module):
         labels_flat = torch.cat(labels_flat, 0)
         box_targets_flat = torch.cat(box_targets_flat, 0)
 
-        import pdb; pdb.set_trace()
         pos_id = torch.nonzero(labels_flat > 0).squeeze(1)
 
-        cls_loss = self.cls_loss(cls_flat, labels_flat.int()) / (pos_id.numel() + batch)
+        cls_loss = self.cls_loss(cls_flat, labels_flat.int()) / (pos_id.numel() + batch_size)
 
-        return 
+        box_flat = box_flat[pos_id]
+        center_flat = center_flat[pos_id]
+
+        box_targets_flat = box_targets_flat[pos_id]
+
+        if pos_id.numel() > 0:
+            center_targets = self.compute_centerness_targets(box_targets_flat)
+
+            box_loss = self.box_loss(box_flat, box_targets_flat, center_targets)
+            center_loss = self.center_loss(center_flat, center_targets)
+
+        else:
+            box_loss = box_flat.sum()
+            center_loss = center_flat.sum()
+
+        return cls_loss, box_loss, center_loss
+
+    def compute_centerness_targets(self, box_targets):
+        left_right = box_targets[:, [0, 2]]
+        top_bottom = box_targets[:, [1, 3]]
+        centerness = (left_right.min(-1)[0] / left_right.max(-1)[0]) * (
+            top_bottom.min(-1)[0] / top_bottom.max(-1)[0]
+        )
+
+        return torch.sqrt(centerness)
 
     def prepare_targets(self, locations, targets):
         ex_size_of_interest = []

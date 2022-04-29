@@ -9,7 +9,7 @@ sys.path.append('.')
 from config import cfg
 from data import make_data_loader
 from engine.trainer import do_train
-from modeling import build_model, build_loss
+from modeling import build_model, build_loss, build_post_process
 from solver import make_optimizer
 
 from utils.logger import setup_logger
@@ -23,10 +23,12 @@ def train(cfg):
 
     arguments = {}
 
-    train_loader = make_data_loader(cfg, split="train")
-    val_loader = make_data_loader(cfg, split="test")
+    train_loader = make_data_loader(cfg, is_train=True)
+    val_loader = make_data_loader(cfg, is_train=False)
 
     loss_fn = build_loss(cfg)
+
+    postprocess = build_post_process(cfg)
 
     do_train(
         model,
@@ -35,6 +37,7 @@ def train(cfg):
         optimizer,
         None,
         loss_fn,
+        postprocess, 
         cfg, 
     )
 
