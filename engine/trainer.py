@@ -8,27 +8,34 @@ from torchvision import transforms
 from evaluation.metrics import dice, jaccard
 
 class LitModel(pl.LightningModule):
-    def __init__(self, model, loss, optim, post_process):
+    def __init__(self, model, loss, optim, lr_scheduler, post_process):
         super().__init__()
         self.model = model
         self.loss = loss
         self.optim = optim
+        self.lr_scheduler = lr_scheduler
         self.post_process = post_process
 
     def forward(self, x):
-        mask = self.model(x)
-        return mask
+        classes, boxes, centers = self.model(x)
+        return classes, boxes, centers
 
     def training_step(self, batch, batch_idx):
         data, targets, indices, ratios = batch 
         preds, locations = self.model(data)
         losses = self.loss(locations, preds, targets)
         cls_loss, box_loss, center_loss = losses
+        # opt = self.optimizers()
+        # loss = sum(losses)
+        # opt.zero_grad()
+        # loss.backward()
+        # opt.step()
         self.log('train_all_loss', sum(losses).item(), on_epoch=True)
         self.log('train_cls_loss', cls_loss.item(), on_epoch=True)
         self.log('train_box_loss', box_loss.item(), on_epoch=True)
         self.log('train_center_loss', center_loss.item(), on_epoch=True)
-        return cls_loss + box_loss + center_loss
+        return sum(losses)
+    
 
     def validation_step(self, batch, batch_idx):
         data, targets, indices, ratios = batch 
@@ -51,7 +58,7 @@ class LitModel(pl.LightningModule):
         self.log('test_center_loss', center_loss.item(), on_epoch=True)
 
     def configure_optimizers(self):
-        return self.optim
+        return [self.optim], [self.lr_scheduler]
 
 
 def do_train(
@@ -65,18 +72,21 @@ def do_train(
         cfg, 
     ):
 
-    my_model = LitModel(model, loss_fn, optimizer, post_process)
+    my_model = LitModel(model, loss_fn, optimizer, scheduler, post_process)
     
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer(devices=1, accelerator="gpu", max_epochs=cfg.SOLVER.MAX_EPOCHS)
+    trainer = pl.Trainer(devices=1, 
+                            accelerator="gpu", 
+                            max_epochs=cfg.SOLVER.MAX_EPOCHS, 
+                            )
     trainer.fit(my_model, train_loader, val_loader)
 
     # ------------
     # testing
     # ------------
-    result = trainer.test(test_dataloaders=val_loader)
+    result = trainer.test(dataloaders=val_loader)
     print(result)
 
 def do_test(
@@ -87,7 +97,7 @@ def do_test(
         post_process, 
     ):
 
-    my_model = LitModel(model, loss_fn, optimizer, post_process)
+    my_model = LitModel(model, loss_fn, optimizer, scheduler, post_process)
     trainer = pl.Trainer(devices=1, accelerator="gpu")
     # ------------
     # testing

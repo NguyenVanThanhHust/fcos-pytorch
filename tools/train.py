@@ -10,7 +10,7 @@ from config import cfg
 from data import make_data_loader
 from engine.trainer import do_train
 from modeling import build_model, build_loss, build_post_process
-from solver import make_optimizer
+from solver import make_optimizer, make_lr_scheduler
 
 from utils.logger import setup_logger
 
@@ -19,7 +19,7 @@ def train(cfg):
     device = cfg.MODEL.DEVICE
 
     optimizer = make_optimizer(cfg, model)
-    scheduler = None
+    scheduler = make_lr_scheduler(cfg, optimizer)
 
     arguments = {}
 
@@ -35,7 +35,7 @@ def train(cfg):
         train_loader,
         val_loader,
         optimizer,
-        None,
+        scheduler,
         loss_fn,
         postprocess, 
         cfg, 

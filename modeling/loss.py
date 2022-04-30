@@ -153,6 +153,13 @@ class FCOSLoss(nn.Module):
             box_loss = box_flat.sum()
             center_loss = center_flat.sum()
 
+        if torch.isnan(cls_loss):
+            cls_loss = torch.nan_to_num(cls_loss)
+        if torch.isnan(box_loss):
+            box_loss = torch.nan_to_num(box_loss)
+        if torch.isnan(center_loss):
+            center_loss = torch.nan_to_num(center_loss)
+
         return cls_loss, box_loss, center_loss
 
     def compute_centerness_targets(self, box_targets):

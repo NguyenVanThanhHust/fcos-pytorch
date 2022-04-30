@@ -1,5 +1,5 @@
 import torch
-
+import pytorch_lightning as pl
 
 def make_optimizer(cfg, model):
     params = []
@@ -14,3 +14,8 @@ def make_optimizer(cfg, model):
         params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
     optimizer = getattr(torch.optim, cfg.SOLVER.OPTIMIZER_NAME)(params, momentum=cfg.SOLVER.MOMENTUM)
     return optimizer
+
+def make_lr_scheduler(cfg, optimizer):
+    from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+    scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=cfg.SOLVER.WARMUP_EPOCHS, max_epochs=cfg.SOLVER.MAX_EPOCHS)
+    return scheduler
