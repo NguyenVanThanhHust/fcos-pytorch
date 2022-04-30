@@ -25,11 +25,6 @@ class LitModel(pl.LightningModule):
         preds, locations = self.model(data)
         losses = self.loss(locations, preds, targets)
         cls_loss, box_loss, center_loss = losses
-        # opt = self.optimizers()
-        # loss = sum(losses)
-        # opt.zero_grad()
-        # loss.backward()
-        # opt.step()
         self.log('train_all_loss', sum(losses).item(), on_epoch=True)
         self.log('train_cls_loss', cls_loss.item(), on_epoch=True)
         self.log('train_box_loss', box_loss.item(), on_epoch=True)
@@ -78,6 +73,7 @@ def do_train(
     # training
     # ------------
     trainer = pl.Trainer(devices=1, 
+                            precision=16,
                             accelerator="gpu", 
                             max_epochs=cfg.SOLVER.MAX_EPOCHS, 
                             )
